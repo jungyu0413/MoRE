@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MoRE Trajectory Refinement</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one 1180px container, one left edge. On wide screens each section opens with its heading in a
+   narrow left column and its text in the right column, so lines stay ~68ch without leaving half the page
+   empty; below 960px everything stacks. Colour comes from the paper's figure legend. */
+:root {
+  --bg: #f5f6f4;
+  --surface: #ffffff;
+  --ink: #16191d;
+  --muted: #5b626b;
+  --line: #d9ddd8;
+  --deck: #101316;
+  --deck-2: #1b2024;
+  --deck-line: #2c3338;
+  --deck-ink: #eef0ee;
+  --deck-muted: #9aa3a8;
+  --gt: #1f9d3a;
+  --num: #8a3fc4;
+  --lm: #d6559c;
+  --more: #d8262a;
+  --accent: var(--more);
+  --f-display: "Familjen Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --container: 1180px;
+  --measure: 68ch;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1214; --surface: #171b1e; --ink: #e9ecea; --muted: #9ba3a8; --line: #2a3034;
+    --deck: #080a0b; --deck-2: #161b1e; --deck-line: #272e33;
+    --gt: #34c552; --num: #b27ae6; --lm: #ef7fbd; --more: #ff4b4b;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1214; --surface: #171b1e; --ink: #e9ecea; --muted: #9ba3a8; --line: #2a3034;
+  --deck: #080a0b; --deck-2: #161b1e; --deck-line: #272e33;
+  --gt: #34c552; --num: #b27ae6; --lm: #ef7fbd; --more: #ff4b4b;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 400 1.075rem/1.62 var(--f-body); margin: 0; }
+.page { max-width: var(--container); margin-inline: auto; padding-inline: 24px; }
+@media (max-width: 520px) { .page { padding-inline: 16px; } }
+.prose { max-width: var(--measure); display: grid; gap: 16px; min-width: 0; }
+.intro { display: grid; gap: 14px; }
+.intro .head { display: grid; gap: 12px; align-content: start; min-width: 0; }
+
+@media (min-width: 960px) { .intro h2 { font-size: 1.85rem; } }
+.intro .prose { max-width: 78ch; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; line-height: 1.12; margin: 0; letter-spacing: -0.01em; }
+h2 { font-size: clamp(1.5rem, 1.1rem + 1.4vw, 2.05rem); font-weight: 700; }
+h3 { font-size: 1.12rem; font-weight: 600; }
+p { margin: 0; text-wrap: pretty; }
+.nw { white-space: nowrap; }
+/* abstract: one paragraph across the full container width, justified like the paper */
+.abstract { display: grid; gap: 18px; }
+.abstract-text { max-width: none; }
+@media (min-width: 760px) { .abstract-text p { text-align: justify; } }
+@media (min-width: 960px) { .abstract h2 { font-size: 1.85rem; } }
+.hero-deck { margin-bottom: 28px; }
+a { color: inherit; text-decoration-color: var(--accent); text-underline-offset: 3px; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+code { font-family: var(--f-mono); font-size: 0.88em; }
+.eyebrow { font: 600 0.74rem/1 var(--f-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+section { padding-block: clamp(40px, 6vw, 64px); border-top: 1px solid var(--line); display: grid; gap: clamp(18px, 2.5vw, 26px); }
+
+/* ---------- hero ---------- */
+.hero { padding-block: 56px 32px; display: grid; gap: 18px; }
+.hero h1 { font-size: clamp(1.75rem, 1.1rem + 2.5vw, 3rem); font-weight: 700; max-width: 1050px; }
+.hero .sub { font-family: var(--f-display); font-size: clamp(1.05rem, 0.98rem + 0.4vw, 1.28rem); line-height: 1.5; color: var(--muted); max-width: 62ch; text-wrap: pretty; }
+.hero .sub b { color: var(--more); }
+.authors { display: flex; flex-wrap: wrap; gap: 4px 26px; font: 600 1.08rem/1.4 var(--f-display); }
+.authors a { text-decoration: none; border-bottom: 2px solid transparent; }
+.authors a:hover { border-bottom-color: var(--accent); }
+.authors sup, .affil sup { font: 600 0.72rem/1 var(--f-mono); color: var(--muted); margin-left: 2px; }
+.affil { display: flex; flex-wrap: wrap; gap: 4px 22px; color: var(--muted); font: 500 0.95rem/1.4 var(--f-display); }
+.links { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); font: 600 0.9rem/1 var(--f-display); text-decoration: none; cursor: pointer; }
+.btn[aria-disabled="true"] { color: var(--muted); cursor: default; }
+.btn .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--more); }
+
+/* ---------- decks (dark video frames, same in both themes) ---------- */
+.deck { background: var(--deck); color: var(--deck-ink); border-radius: 16px; padding: 14px; display: grid; gap: 10px; }
+.deck video { width: 100%; max-width: 100%; display: block; border-radius: 10px; background: #000; aspect-ratio: var(--ar, 16/9); height: auto; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font: 500 0.8rem/1.3 var(--f-mono); color: var(--deck-muted); padding: 2px 4px; }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.legend i { width: 22px; height: 4px; border-radius: 2px; display: inline-block; }
+.cap { color: var(--deck-muted); font: 400 0.84rem/1.5 var(--f-mono); padding: 0 4px; }
+.flag { display: inline-flex; gap: 8px; align-items: center; font: 600 0.72rem/1 var(--f-mono); letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--deck-muted); border: 1px solid var(--deck-line); border-radius: 999px; padding: 6px 10px; justify-self: start; }
+
+/* ---------- comparison player: video on top, controls in one row, scenes as a strip ---------- */
+.player { display: grid; gap: 18px; }
+.controls { display: grid; gap: 16px 22px; min-width: 0; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); align-items: start; }
+@media (max-width: 760px) { .controls { grid-template-columns: minmax(0, 1fr); } }
+.group { display: grid; gap: 8px; }
+.group > .lab { font: 600 0.7rem/1 var(--f-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--deck-muted); }
+.seg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.seg.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.seg.dsets { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 560px) { .seg.dsets { grid-template-columns: repeat(2, minmax(0, 1fr)) repeat(3, minmax(0, 1fr)); grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .seg.dsets button:nth-child(-n+2) { grid-column: span 3; } .seg.dsets button:nth-child(n+3) { grid-column: span 2; } }
+.controls .full { grid-column: 1 / -1; }
+@media (max-width: 1100px) and (min-width: 761px) { .seg { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 420px) { .seg { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.seg button { font: 600 0.84rem/1 var(--f-display); color: var(--deck-ink); background: var(--deck-2); border: 1px solid var(--deck-line);
+  border-radius: 8px; padding: 10px 8px; cursor: pointer; display: inline-flex; gap: 7px; align-items: center; justify-content: center; min-width: 0; white-space: nowrap; }
+.seg button[aria-pressed="true"] { background: var(--deck-ink); color: #0c0f11; border-color: var(--deck-ink); }
+.seg button .sw { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.seg button:disabled { opacity: 0.35; cursor: default; }
+.scenes { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 1000px) { .scenes { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 640px) {
+  .scenes { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 42%; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px; }
+  .scenes button { scroll-snap-align: start; }
+}
+.scenes button { padding: 0; border: 2px solid transparent; border-radius: 8px; background: none; cursor: pointer; overflow: hidden; text-align: left; color: var(--deck-ink); }
+.scenes button img { display: block; width: 100%; aspect-ratio: 16/9; object-fit: cover; }
+.scenes button span { display: block; font: 600 0.7rem/1.2 var(--f-mono); padding: 5px 6px; background: var(--deck-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scenes button[aria-pressed="true"] { border-color: var(--more); }
+.dset { display: flex; flex-wrap: wrap; gap: 6px; }
+.dset button { font: 600 0.74rem/1 var(--f-mono); letter-spacing: 0.04em; color: var(--deck-muted); background: none; border: 1px solid var(--deck-line); border-radius: 999px; padding: 6px 10px; cursor: pointer; }
+.dset button[aria-pressed="true"] { color: var(--deck-ink); border-color: var(--deck-ink); }
+
+/* ---------- paper figure ---------- */
+.paperfig { margin: 0; display: grid; gap: 12px; }
+.paperfig a { display: block; background: #ffffff; border: 1px solid var(--line); border-radius: 14px; padding: clamp(10px, 2vw, 22px); overflow-x: auto; }
+.paperfig img { display: block; width: 100%; height: auto; }
+.paperfig figcaption { color: var(--muted); font-size: 0.95rem; max-width: 100ch; }
+
+/* ---------- method ---------- */
+.steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; counter-reset: s; padding: 0; margin: 0; }
+@media (max-width: 860px) { .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .steps { grid-template-columns: minmax(0, 1fr); } }
+.steps li { list-style: none; border-top: 3px solid var(--c, var(--ink)); padding-top: 12px; min-width: 0; display: grid; gap: 6px; align-content: start; }
+.steps li::before { counter-increment: s; content: "Step " counter(s); font: 600 0.72rem/1 var(--f-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.steps p { font-size: 0.95rem; color: var(--muted); }
+.formula { font: 400 0.9rem/1.6 var(--f-mono); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; white-space: nowrap; }
+
+/* ---------- gallery ---------- */
+.gallery { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 900px) { .gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) {
+  .gallery { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 82%; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px; }
+  .gallery figure { scroll-snap-align: start; }
+}
+.gallery figure { margin: 0; min-width: 0; display: grid; gap: 6px; }
+.gallery video { width: 100%; max-width: 100%; display: block; border-radius: 10px; background: #000; aspect-ratio: 16/9; }
+.gallery figcaption { font: 500 0.78rem/1.4 var(--f-mono); color: var(--muted); }
+
+/* ---------- tables ---------- */
+.tscroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font: 400 0.88rem/1.3 var(--f-mono); font-variant-numeric: tabular-nums; min-width: 680px; }
+th, td { padding: 9px 14px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; font-family: var(--f-display); font-weight: 600; }
+thead th { font: 600 0.72rem/1 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+tr.grp td { font: 600 0.7rem/1 var(--f-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); background: var(--bg); text-align: left; }
+tr.ours td { color: var(--more); font-weight: 600; }
+tbody tr:last-child td { border-bottom: 0; }
+.tables { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+@media (max-width: 760px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.kpi { border-left: 3px solid var(--more); padding: 2px 0 2px 14px; display: grid; gap: 4px; min-width: 0; }
+.kpi b { font: 700 clamp(1.2rem, 0.95rem + 1vw, 1.6rem)/1.15 var(--f-display); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kpi span { font-size: 0.9rem; color: var(--muted); }
+
+pre.bib { font: 400 0.82rem/1.55 var(--f-mono); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; overflow-x: auto; margin: 0; }
+footer { padding-block: 32px 56px; color: var(--muted); font-size: 0.88rem; border-top: 1px solid var(--line); }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <header class="hero">
+    <div class="eyebrow">Trajectory forecasting · 2026</div>
+    <h1>Revisiting Numerical Forecasting Models for <span class="nw">Language-Based</span> Trajectory Prediction</h1>
+    <p class="sub"><b>MoRE</b> (Mixture of Reward Experts) refines a language-based trajectory predictor with rewards from five frozen numerical models.</p>
+    <div class="authors">
+      <a href="https://jungyu0413.github.io/">JunGyu Lee<sup>1</sup></a>
+      <a href="https://ihbae.com/inhwanbae">Inhwan Bae<sup>2</sup></a>
+      <a href="https://scholar.google.co.kr/citations?user=Ei00xroAAAAJ&amp;hl=ko">Hae-Gon Jeon<sup>1</sup></a>
+    </div>
+    <div class="affil"><span><sup>1</sup>Yonsei University</span><span><sup>2</sup>DGIST</span></div>
+    <div class="links">
+      <a class="btn" aria-disabled="true"><span class="dot"></span>arXiv · coming soon</a>
+      <a class="btn" aria-disabled="true">Code · coming soon</a>
+      <a class="btn" href="#compare">Interactive comparison</a>
+      <a class="btn" href="#bibtex">BibTeX</a>
+    </div>
+  </header>
+
+  <div class="deck hero-deck">
+    <video id="hero" src="" poster="" autoplay muted loop playsinline preload="metadata"></video>
+    <p class="cap" id="heroCap"></p>
+  </div>
+
+  <section id="abstract">
+    <div class="abstract">
+      <h2>Abstract</h2>
+      <div class="prose abstract-text">
+        <p>Language-based trajectory predictors represent coordinates as discrete tokens and learn auxiliary tasks such as destination and group reasoning. This formulation enables the model to capture behavioral intent and social context beyond coordinate dynamics alone. However, token-level objectives provide only indirect guidance for continuous coordinate-space dynamics. To address this limitation, we introduce <b>MoRE</b> (<b>M</b>ixture <b>O</b>f <b>R</b>eward <b>E</b>xperts), a refinement framework that transfers numerical forecasting priors into a pretrained language-based predictor through reinforcement learning. Five frozen numerical predictors provide complementary coordinate-level knowledge of motion and interactions. Their predictions are converted into expert rewards and combined through an uncertainty-weighted consensus that penalizes disagreement. A ground-truth reward anchors the prediction to the target trajectory. To focus refinement on difficult cases, MoRE refines the policy using the top 1% of training samples ranked by predictive entropy. Expert predictions are computed once and cached before PPO training, so the experts are not run during policy updates or inference. In this way, MoRE combines the contextual modeling of the language-based predictor with coordinate-level feedback from numerical experts. On <span class="nw">ETH-UCY</span>, MoRE reduces ADE from 0.22 to 0.20&nbsp;m and FDE from 0.32 to 0.29&nbsp;m. Relative to the base policy, ADE decreases by 17.9% on SDD and 12.7% on NBA. On <span class="nw">ETH-UCY</span>, MoRE also reduces collision rates and better matches ground-truth pedestrian spacing, without increasing measured inference memory or latency.</p>
+      </div>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><b>0.22 → 0.20 m</b><span>ETH-UCY ADE (best-of-20)</span></div>
+      <div class="kpi"><b>0.32 → 0.29 m</b><span>ETH-UCY FDE</span></div>
+      <div class="kpi"><b>−17.9%</b><span>ADE on SDD vs. base policy</span></div>
+      <div class="kpi"><b>+0 ms</b><span>Inference overhead</span></div>
+    </div>
+  </section>
+
+  <section id="method">
+    <div class="intro">
+      <div class="head"><div class="eyebrow">Method</div><h2>MoRE training pipeline</h2></div>
+      <div class="prose">
+        <p>MoRE builds on a pretrained language-based forecasting architecture and refines it using rewards from numerical experts.</p>
+      </div>
+    </div>
+    <figure class="paperfig">
+      <a href="assets/method_pipeline.png" target="_blank" rel="noopener"><img src="assets/method_pipeline.png" alt="MoRE training pipeline: uncertainty-driven sample mining, numerical experts, multi-expert consensus reward modeling, and PPO-based reinforcement learning" width="2180" height="664"></a>
+      <figcaption>A frozen base policy ranks training samples by predictive entropy. Numerical expert predictions for the selected subset are cached once. Decoded policy samples receive expert-consensus and ground-truth rewards for PPO refinement, interleaved with supervised learning. Only the refined forecasting policy is needed at inference.</figcaption>
+    </figure>
+    <ol class="steps">
+      <li style="--c:var(--lm)"><h3>Uncertainty-driven sample mining</h3><p>The frozen base policy scores each training sample by the entropy of its token distribution. Refinement focuses on the top 1% most uncertain samples.</p></li>
+      <li style="--c:var(--num)"><h3>Numerical experts</h3><p>Five frozen predictors (<span class="nw">Social-STGCNN</span>, DMRGCN, <span class="nw">GP-Graph</span>, SingularTrajectory, <span class="nw">Expert-Trajectory</span>) predict the selected samples once; the predictions are cached.</p></li>
+      <li style="--c:var(--gt)"><h3>Multi-expert consensus reward</h3><p>Each expert scores a decoded path by <code>R<sub>k</sub> = −MSE(Ŝ, S<sub>k</sub>)</code>. Uncertainty-weighted consensus penalizes expert disagreement, and a <span class="nw">ground-truth</span> reward anchors the prediction.</p></li>
+      <li style="--c:var(--more)"><h3>Reinforcement learning</h3><p>The policy is refined with PPO, interleaved with supervised learning. The experts are not needed at inference.</p></li>
+    </ol>
+  </section>
+
+  <section id="results">
+    <div class="intro">
+      <div class="head"><div class="eyebrow">Results</div><h2>Quantitative results</h2></div>
+      <div class="prose">
+        <p>Best-of-20 ADE / FDE: <span class="nw">ETH-UCY</span> in meters, SDD and GCS in pixels. Selected rows from Table 1 of the paper; lower is better.</p>
+      </div>
+    </div>
+    <div class="tables">
+      <div class="tscroll">
+        <table>
+          <thead><tr><th>Model</th><th>ETH</th><th>HOTEL</th><th>UNIV</th><th>ZARA1</th><th>ZARA2</th><th>AVG</th><th>SDD</th><th>GCS</th></tr></thead>
+          <tbody>
+            <tr class="grp"><td colspan="9">Numerical</td></tr>
+            <tr><td>GP-Graph</td><td>0.43/0.63</td><td>0.18/0.30</td><td>0.24/0.42</td><td>0.17/0.31</td><td>0.15/0.29</td><td>0.23/0.39</td><td>9.1/13.8</td><td>7.8/13.7</td></tr>
+            <tr><td>MART</td><td>0.35/0.47</td><td>0.14/0.22</td><td>0.25/0.45</td><td>0.17/0.29</td><td>0.13/0.22</td><td>0.21/0.33</td><td>7.4/11.8</td><td>10.6/14.1</td></tr>
+            <tr><td>SingularTrajectory</td><td>0.35/0.42</td><td>0.13/0.19</td><td>0.25/0.44</td><td>0.19/0.32</td><td>0.15/0.25</td><td>0.21/0.32</td><td>7.58/12.1</td><td>7.9/13.3</td></tr>
+            <tr><td>MoFlow</td><td>0.40/0.57</td><td>0.11/0.17</td><td>0.23/0.39</td><td>0.15/0.26</td><td>0.12/0.22</td><td>0.20/0.32</td><td>7.5/12.0</td><td>9.1/11.6</td></tr>
+            <tr class="grp"><td colspan="9">Language-based</td></tr>
+            <tr><td>LMTraj-SUP</td><td>0.41/0.50</td><td>0.12/0.16</td><td>0.22/0.34</td><td>0.20/0.32</td><td>0.17/0.27</td><td>0.22/0.32</td><td>7.8/10.1</td><td>7.1/9.6</td></tr>
+            <tr><td>W2W</td><td>0.35/0.41</td><td>0.12/0.15</td><td>0.20/0.32</td><td>0.19/0.29</td><td>0.17/0.26</td><td>0.21/0.29</td><td>7.4/10.1</td><td>–</td></tr>
+            <tr class="ours"><td>MoRE (Ours)</td><td>0.36/0.42</td><td>0.11/0.14</td><td>0.21/0.32</td><td>0.18/0.28</td><td>0.17/0.26</td><td>0.20/0.29</td><td>6.4/9.5</td><td>6.8/8.5</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="compare">
+    <div class="intro">
+      <div class="head"><div class="eyebrow">Results</div><h2>Qualitative results</h2></div>
+      <div class="prose">
+        <p>Numerical models vs. LMTraj vs. MoRE. Pick a dataset, a scene, a camera and a model. Each clip replays the recorded crowd, pauses at the prediction moment while the sampled futures are drawn, lets the future unfold, and then highlights the sample closest to the ground truth. <span class="nw">ETH-UCY</span> ZARA and SDD Hyang are replayed in 3D; ETH, HOTEL and UNIV are shown on the real-world videos.</p>
+      </div>
+    </div>
+    <div class="deck">
+      <div class="player">
+        <video id="pv" src="" controls autoplay muted loop playsinline preload="metadata"></video>
+        <div class="controls">
+          <div class="group full"><div class="lab">Dataset · 3D replay or real-world video</div><div class="seg dsets" id="dset"></div></div>
+          <div class="group"><div class="lab">Model</div>
+            <div class="seg" id="mseg">
+              <button type="button" data-m="triptych" aria-pressed="true">All three</button>
+              <button type="button" data-m="num" aria-pressed="false"><span class="sw" style="background:linear-gradient(90deg,#3c5af0 0 33%,#af4be1 33% 66%,#1ec8e1 66%)"></span>Numerical</button>
+              <button type="button" data-m="lm" aria-pressed="false"><span class="sw" style="background:#ff6ebe"></span>LMTraj</button>
+              <button type="button" data-m="more" aria-pressed="false"><span class="sw" style="background:#f01e1e"></span>MoRE</button>
+            </div>
+          </div>
+          <div class="group"><div class="lab">Camera</div>
+            <div class="seg three" id="cseg">
+              <button type="button" data-c="main" aria-pressed="true">Overhead</button>
+              <button type="button" data-c="ego" aria-pressed="false">Ego</button>
+              <button type="button" data-c="orbit" aria-pressed="false">Orbit</button>
+            </div>
+          </div>
+        </div>
+        <div class="group"><div class="lab">Scene</div><div class="scenes" id="scenes"></div></div>
+      </div>
+      <p class="cap" id="pcap"></p>
+    </div>
+  </section>
+
+  <section id="refine">
+    <div class="intro">
+      <div class="head"><div class="eyebrow">Refinement</div><h2>From consistent to consistent and accurate</h2></div>
+    </div>
+    <div class="deck"><video id="morph" src="" autoplay muted loop playsinline preload="metadata"></video></div>
+  </section>
+
+  <section id="ego">
+    <div class="intro">
+      <div class="head"><div class="eyebrow">Ego view</div><h2>Standing behind the pedestrian</h2></div>
+    </div>
+    <div class="gallery" id="egoGallery"></div>
+  </section>
+
+
+  <section id="bibtex">
+    <div class="intro">
+      <div class="head"><div class="eyebrow">Cite</div><h2>BibTeX</h2></div>
+    </div>
+    <pre class="bib" id="bib">@article{lee2026more,
+  title   = {Revisiting Numerical Forecasting Models for Language-Based Trajectory Prediction},
+  author  = {Lee, JunGyu and Bae, Inhwan and Jeon, Hae-Gon},
+  journal = {arXiv preprint},
+  year    = {2026}
+}</pre>
+    <div><button class="btn" type="button" id="copyBib">Copy BibTeX</button></div>
+  </section>
+
+</div>
+
+<script>
+const MANIFEST = {"scenes": [{"id": "zara1_0", "tp": 5390, "label": "ETH-UCY ZARA1 \u00b7 3D replay", "dataset": "ETH-UCY ZARA", "targets": 1, "short": "ZARA1 \u00b7 1", "kind": "3d", "cams": ["main", "ego", "orbit"], "triptych": ["main", "orbit"]}, {"id": "zara1_1", "tp": 5680, "label": "ETH-UCY ZARA1 \u00b7 3D replay", "dataset": "ETH-UCY ZARA", "targets": 1, "short": "ZARA1 \u00b7 2", "kind": "3d", "cams": ["main", "ego", "orbit"], "triptych": ["main", "orbit"]}, {"id": "zara1_2", "tp": 4380, "label": "ETH-UCY ZARA1 \u00b7 3D replay", "dataset": "ETH-UCY ZARA", "targets": 1, "short": "ZARA1 \u00b7 3", "kind": "3d", "cams": ["main", "ego", "orbit"], "triptych": ["main", "orbit"]}, {"id": "zara1_3", "tp": 2190, "label": "ETH-UCY ZARA1 \u00b7 3D replay", "dataset": "ETH-UCY ZARA", "targets": 1, "short": "ZARA1 \u00b7 4", "kind": "3d", "cams": ["main", "ego", "orbit"], "triptych": ["main", "orbit"]}, {"id": "zara2_0", "tp": 8380, "label": "ETH-UCY ZARA2 \u00b7 3D replay", "dataset": "ETH-UCY ZARA", "targets": 2, "short": "ZARA2 \u00b7 1", "kind": "3d", "cams": ["main", "ego", "orbit"], "triptych": ["main", "orbit"]}, {"id": "zara2_1", "tp": 5710, "label": "ETH-UCY ZARA2 \u00b7 3D replay", "dataset": "ETH-UCY ZARA", "targets": 1, "short": "ZARA2 \u00b7 2", "kind": "3d", "cams": ["main", "ego", "orbit"], "triptych": ["main", "orbit"]}, {"id": "zara2_2", "tp": 3960, "label": "ETH-UCY ZARA2 \u00b7 3D replay", "dataset": "ETH-UCY ZARA", "targets": 1, "short": "ZARA2 \u00b7 3", "kind": "3d", "cams": ["main", "ego", "orbit"], "triptych": ["main", "orbit"]}, {"id": "zara2_3", "tp": 2240, "label": "ETH-UCY ZARA2 \u00b7 3D replay", "dataset": "ETH-UCY ZARA", "targets": 1, "short": "ZARA2 \u00b7 4", "kind": "3d", "cams": ["main", "ego", "orbit"], "triptych": ["main", "orbit"]}, {"id": "hyang_0", "tp": 4740, "label": "SDD Hyang \u00b7 3D replay", "dataset": "SDD HYANG", "targets": 2, "short": "HYANG \u00b7 1", "kind": "3d", "cams": ["main", "ego", "orbit"], "triptych": ["main", "orbit"]}, {"id": "hyang_1", "tp": 6024, "label": "SDD Hyang \u00b7 3D replay", "dataset": "SDD HYANG", "targets": 2, "short": "HYANG \u00b7 2", "kind": "3d", "cams": ["main", "ego", "orbit"], "triptych": ["main", "orbit"]}, {"id": "hyang_2", "tp": 324, "label": "SDD Hyang \u00b7 3D replay", "dataset": "SDD HYANG", "targets": 2, "short": "HYANG \u00b7 3", "kind": "3d", "cams": ["main", "ego", "orbit"], "triptych": ["main", "orbit"]}, {"id": "hyang_3", "tp": 8196, "label": "SDD Hyang \u00b7 3D replay", "dataset": "SDD HYANG", "targets": 2, "short": "HYANG \u00b7 4", "kind": "3d", "cams": ["main", "ego", "orbit"], "triptych": ["main", "orbit"]}, {"id": "eth_0", "tp": 8700, "label": "ETH-UCY ETH \u00b7 real-world video", "dataset": "ETH-UCY ETH", "targets": 1, "short": "ETH \u00b7 1", "kind": "real"}, {"id": "hotel_0", "tp": 13080, "label": "ETH-UCY HOTEL \u00b7 real-world video", "dataset": "ETH-UCY HOTEL", "targets": 1, "short": "HOTEL \u00b7 1", "kind": "real"}, {"id": "hotel_1", "tp": 12520, "label": "ETH-UCY HOTEL \u00b7 real-world video", "dataset": "ETH-UCY HOTEL", "targets": 1, "short": "HOTEL \u00b7 2", "kind": "real"}, {"id": "hotel_2", "tp": 660, "label": "ETH-UCY HOTEL \u00b7 real-world video", "dataset": "ETH-UCY HOTEL", "targets": 1, "short": "HOTEL \u00b7 3", "kind": "real"}, {"id": "hotel_3", "tp": 14410, "label": "ETH-UCY HOTEL \u00b7 real-world video", "dataset": "ETH-UCY HOTEL", "targets": 1, "short": "HOTEL \u00b7 4", "kind": "real"}, {"id": "univ_0", "tp": 3730, "label": "ETH-UCY UNIV \u00b7 real-world video", "dataset": "ETH-UCY UNIV", "targets": 1, "short": "UNIV \u00b7 1", "kind": "real"}, {"id": "univ_1", "tp": 1780, "label": "ETH-UCY UNIV \u00b7 real-world video", "dataset": "ETH-UCY UNIV", "targets": 1, "short": "UNIV \u00b7 2", "kind": "real"}, {"id": "univ_2", "tp": 4140, "label": "ETH-UCY UNIV \u00b7 real-world video", "dataset": "ETH-UCY UNIV", "targets": 1, "short": "UNIV \u00b7 3", "kind": "real"}], "hero": {"scene": "zara2_0", "cam": "orbit", "caption": "ETH-UCY ZARA2 \u00b7 3D replay. Left to right: numerical models (MART, SingularTrajectory, MoFlow), LMTraj, MoRE."}, "morph": {"scene": "zara1_0"}};
+(function () {
+  const $ = (s) => document.querySelector(s);
+  const NAMES = { num: 'Numerical models', lm: 'LMTraj', more: 'MoRE' };
+  const byId = Object.fromEntries(MANIFEST.scenes.map((s) => [s.id, s]));
+  const datasets = [...new Set(MANIFEST.scenes.map((s) => s.dataset))];
+  // on phones the side-by-side clip is too small to read: start with MoRE alone
+  const narrow = window.matchMedia('(max-width: 640px)').matches;
+  const state = { ds: datasets[0], scene: MANIFEST.scenes[0].id, m: narrow ? 'more' : 'triptych', c: 'main' };
+  // size every video box to the clip's own aspect ratio (side-by-side clips are much wider than 16:9)
+  const fit = (v) => v.addEventListener('loadedmetadata', () => {
+    if (v.videoWidth) v.style.setProperty('--ar', `${v.videoWidth} / ${v.videoHeight}`);
+  });
+  document.querySelectorAll('video').forEach(fit);
+
+  const src = (s, cam, m) => s.kind === '3d' ? `videos/${s.id}/${cam}/${m}.mp4` : `videos/${s.id}/${m}.mp4`;
+  const poster = (s, cam, m) => {
+    const f = m && m !== 'triptych' ? `poster_${m}.jpg` : 'poster.jpg';
+    return s.kind === '3d' ? `videos/${s.id}/${cam}/${f}` : `videos/${s.id}/${f}`;
+  };
+
+  function renderScenes() {
+    const box = $('#scenes');
+    box.textContent = '';
+    const list = MANIFEST.scenes.filter((s) => s.dataset === state.ds);
+    box.style.setProperty('--n', String(Math.max(4, list.length)));
+    list.forEach((s) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.s = s.id;
+      b.setAttribute('aria-pressed', String(s.id === state.scene));
+      b.innerHTML = `<img alt="" src="${poster(s, 'main')}"><span>${s.short}</span>`;
+      b.addEventListener('click', () => { state.scene = s.id; update(); });
+      box.appendChild(b);
+    });
+  }
+  function update() {
+    const s = byId[state.scene];
+    const is3d = s.kind === '3d';
+    if (is3d && !s.cams.includes(state.c)) state.c = 'main';
+    document.querySelectorAll('#cseg button').forEach((b) => {
+      b.disabled = !is3d || !s.cams.includes(b.dataset.c);
+      b.setAttribute('aria-pressed', String(is3d && b.dataset.c === state.c));
+    });
+    let m = state.m;
+    let note = '';
+    if (m === 'triptych' && is3d && !s.triptych.includes(state.c)) { m = 'more'; note = ' · side-by-side is available for Overhead and Orbit'; }
+    document.querySelectorAll('#mseg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.m === state.m)));
+    document.querySelectorAll('#dset button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.d === state.ds)));
+    document.querySelectorAll('#scenes button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.s === state.scene)));
+    const v = $('#pv');
+    v.poster = poster(s, is3d ? state.c : null, m);
+    v.src = src(s, state.c, m);
+    v.play().catch(() => {});
+    $('#pcap').textContent = `${s.label}${note}`;
+  }
+  const dbox = $('#dset');
+  datasets.forEach((d) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.d = d;
+    b.textContent = { 'ETH-UCY ZARA': 'ZARA · 3D', 'SDD HYANG': 'SDD · 3D', 'ETH-UCY ETH': 'ETH', 'ETH-UCY HOTEL': 'HOTEL', 'ETH-UCY UNIV': 'UNIV' }[d] || d;
+    b.title = d;
+    b.addEventListener('click', () => {
+      state.ds = d;
+      state.scene = MANIFEST.scenes.find((s) => s.dataset === d).id;
+      renderScenes();
+      update();
+    });
+    dbox.appendChild(b);
+  });
+  document.querySelectorAll('#mseg button').forEach((b) => b.addEventListener('click', () => { state.m = b.dataset.m; update(); }));
+  document.querySelectorAll('#cseg button').forEach((b) => b.addEventListener('click', () => { if (!b.disabled) { state.c = b.dataset.c; update(); } }));
+  renderScenes();
+  update();
+
+  const hero = byId[MANIFEST.hero.scene];
+  $('#hero').poster = poster(hero, MANIFEST.hero.cam);
+  $('#hero').src = src(hero, MANIFEST.hero.cam, narrow ? 'more' : 'triptych');
+  $('#heroCap').textContent = narrow
+    ? `${hero.label} · MoRE. The side-by-side comparison is in the player below.`
+    : MANIFEST.hero.caption;
+  const ms = byId[MANIFEST.morph.scene];
+  $('#morph').poster = poster(ms, 'main');
+  $('#morph').src = ms.kind === '3d' ? `videos/${ms.id}/main/morph.mp4` : `videos/${ms.id}/morph.mp4`;
+
+  const g = $('#egoGallery');
+  const egos = MANIFEST.scenes.filter((s) => s.kind === '3d' && s.cams.includes('ego'));
+  const picks = [];
+  datasets.forEach((d) => { const x = egos.filter((s) => s.dataset === d); if (x.length) picks.push(x[0]); });
+  egos.forEach((s) => { if (picks.length < 6 && !picks.includes(s)) picks.push(s); });
+  picks.slice(0, 6).forEach((s, i) => {
+    const m = ['more', 'lm', 'num'][i % 3];
+    const f = document.createElement('figure');
+    f.innerHTML = `<video muted loop playsinline controls preload="none" poster="${poster(s, 'ego', m)}" src="${src(s, 'ego', m)}"></video><figcaption>${s.short} · ${NAMES[m]}</figcaption>`;
+    g.appendChild(f);
+    fit(f.querySelector('video'));
+  });
+
+  $('#copyBib').addEventListener('click', () => {
+    const t = $('#bib').textContent;
+    const done = () => { $('#copyBib').textContent = 'Copied'; };
+    const fallback = () => { const r = document.createRange(); r.selectNodeContents($('#bib')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); $('#copyBib').textContent = 'Selected, press Ctrl+C'; };
+    try { navigator.clipboard.writeText(t).then(done, fallback); } catch (e) { fallback(); }
+  });
+})();
+</script>
+
+</body>
+</html>
