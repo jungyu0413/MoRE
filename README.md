@@ -157,7 +157,7 @@ The defaults follow the paper:
 ## 📈 Evaluation
 
 ```bash
-# released weights for a dataset (see the table below)
+# pretrained weights for a dataset (from ./weights)
 accelerate launch -m more.evaluate --config_file configs/default.json --dataset_name univ
 
 # your own checkpoint
@@ -174,22 +174,10 @@ scene caption); every sample is mapped back to the original frame before post-pr
 [docs/INFERENCE.md](docs/INFERENCE.md) for details. `--no_fast_attention` disables the copy-free T5 attention used
 for faster sampling (outputs are identical).
 
-**Released weights.** Without `--checkpoint`, `more.evaluate` loads the weights below from `./weights`
-(layout in [weights/README.md](weights/README.md)). Results with this code (full test sets, 1000 samples,
-best-of-20, with test-time augmentation):
-
-| Split | Model loaded by default | ADE / FDE |
-|:--|:--|:-:|
-| ETH | LMTraj-SUP (ETH split) | 0.346 / 0.398 |
-| HOTEL | LMTraj-SUP (ETH split)<sup>†</sup> | 0.101 / 0.122 |
-| UNIV | LMTraj-SUP + **MoRE LoRA adapter** | 0.207 / 0.320 |
-| ZARA1 | LMTraj-SUP (ZARA1 split) | 0.189 / 0.299 |
-| ZARA2 | LMTraj-SUP (ZARA2 split) | 0.166 / 0.255 |
-
-The LMTraj-SUP base models are from the [LMTrajectory release](https://github.com/InhwanBae/LMTrajectory/releases/tag/v1.0).
-MoRE adapters for the remaining splits will be added to the release page.
-<sup>†</sup> The ETH-split model has seen the HOTEL scene during training, so the HOTEL number is not a strict
-leave-one-out result.
+**Pretrained weights.** Pretrained MoRE weights will be released on the
+[release page](https://github.com/jungyu0413/MoRE/releases). Place them under `./weights`
+(layout in [weights/README.md](weights/README.md)); without `--checkpoint`, `more.evaluate` loads the weights for the
+given dataset from there.
 
 <br>
 
