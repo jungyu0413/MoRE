@@ -19,46 +19,43 @@
 
 <div align="center">
   <br><img src="img/more-qualitative.jpg" width="100%">
-  <br><em>(a) Numerical baselines produce scattered samples; (b) LMTraj produces consistent but offset samples;
-  (c) MoRE refines the language-based predictions with numerical feedback.</em>
+  <br><em>Prediction examples on ETH-UCY. "Multimodal" shows 20 samples, and "Best" shows the closest sample. (a) Numerical baselines and (b) LMTraj exhibit different spatial patterns. (c) MoRE refines the language-based predictions using numerical feedback.</em>
 </div>
 
 <br>
 
-**Summary:** **MoRE** (**M**ixture **O**f **R**eward **E**xperts) transfers numerical forecasting priors into a
-pretrained **language-based trajectory predictor** through **reinforcement learning**. Five frozen numerical
-predictors act as reward experts during training only, so inference memory and latency stay the same as the base
-language model.
+## 📝 Abstract
+
+Language-based trajectory predictors represent coordinates as discrete tokens and learn auxiliary tasks such as
+destination and group reasoning. This formulation enables the model to capture behavioral intent and social context
+beyond coordinate dynamics alone. However, token-level objectives provide only indirect guidance for continuous
+coordinate-space dynamics. To address this limitation, we introduce **MoRE** (**M**ixture **O**f **R**eward
+**E**xperts), a refinement framework that transfers numerical forecasting priors into a pretrained language-based
+predictor through reinforcement learning. Five frozen numerical predictors provide complementary coordinate-level
+knowledge of motion and interactions. Their predictions are converted into expert rewards and combined through an
+uncertainty-weighted consensus that penalizes disagreement. A ground-truth reward anchors the prediction to the
+target trajectory. To focus refinement on difficult cases, MoRE refines the policy using the top 1% of training
+samples ranked by predictive entropy. Expert predictions are computed once and cached before PPO training, so the
+experts are not run during policy updates or inference. In this way, MoRE combines the contextual modeling of the
+language-based predictor with coordinate-level feedback from numerical experts. On ETH-UCY, MoRE reduces ADE from
+0.22 to 0.20 m and FDE from 0.32 to 0.29 m. Relative to the base policy, ADE decreases by 17.9% on SDD and 12.7% on
+NBA. On ETH-UCY, MoRE also reduces collision rates and better matches ground-truth pedestrian spacing, without
+increasing measured inference memory or latency.
 
 <br>
 
-## 🧭 Overview
-
-Language-based trajectory predictors represent coordinates as discrete tokens and learn auxiliary tasks such as
-destination and group reasoning, which captures behavioral intent and social context. Token-level objectives,
-however, give only indirect guidance on continuous coordinate-space accuracy. MoRE closes this gap:
-
-* **Multi-expert consensus reward.** Five frozen numerical predictors (Social-STGCNN, DMRGCN, GP-Graph,
-  SingularTrajectory, Expert-Trajectory) score each decoded trajectory, $R_k = -\mathrm{MSE}(\hat{S}, S_k)$.
-  An uncertainty-weighted consensus $R_{\text{exp}} = \mu - \lambda_{\text{uwo}}\,\sigma$ penalizes expert
-  disagreement, and a ground-truth reward $R_{\text{GT}}$ anchors the prediction.
-* **PPO refinement.** The policy is refined with PPO, interleaved with supervised learning, using a LoRA adapter
-  (rank 16, 0.3% of the parameters).
-* **Uncertainty-driven sample mining.** Refinement focuses on the top 1% of training samples ranked by the
-  predictive entropy of the frozen base policy.
-* **No inference overhead.** Expert predictions are computed once and cached before training; only the refined
-  language-based predictor is used at test time.
+## 🧭 Method
 
 <div align="center">
   <img src="img/more-pipeline.png" width="100%">
-  <br><em>MoRE training pipeline.</em>
+  <br><em>MoRE training pipeline. A frozen base policy ranks training samples by predictive entropy. Numerical expert predictions for the selected subset are cached once. Decoded policy samples receive expert-consensus and ground-truth rewards for PPO refinement, interleaved with supervised learning. Only the refined forecasting policy is needed at inference.</em>
 </div>
 
 <br>
 
 ## 📊 Results
 
-Best-of-20 ADE / FDE reported in the paper (Table 1). ETH-UCY in meters, SDD and GCS in pixels.
+Best-of-20 ADE / FDE (ETH-UCY in meters, SDD and GCS in pixels).
 
 | Model | ETH | HOTEL | UNIV | ZARA1 | ZARA2 | AVG | SDD | GCS |
 |:--|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
@@ -66,9 +63,6 @@ Best-of-20 ADE / FDE reported in the paper (Table 1). ETH-UCY in meters, SDD and
 | MoFlow | 0.40/0.57 | 0.11/0.17 | 0.23/0.39 | 0.15/0.26 | 0.12/0.22 | 0.20/0.32 | 7.5/12.0 | 9.1/11.6 |
 | LMTraj-SUP | 0.41/0.50 | 0.12/0.16 | 0.22/0.34 | 0.20/0.32 | 0.17/0.27 | 0.22/0.32 | 7.8/10.1 | 7.1/9.6 |
 | **MoRE (Ours)** | **0.36/0.42** | **0.11/0.14** | **0.21/0.32** | **0.18/0.28** | **0.17/0.26** | **0.20/0.29** | **6.4/9.5** | **6.8/8.5** |
-
-Inference memory and latency are unchanged from the base policy (1,401 MB, 18.3 ms on an RTX 4090).
-See the paper and the [project page](https://jungyu0413.github.io/MoRE/) for the full comparison.
 
 <br>
 
@@ -80,10 +74,6 @@ See the paper and the [project page](https://jungyu0413.github.io/MoRE/) for the
 git clone https://github.com/jungyu0413/MoRE.git && cd MoRE
 pip install -r requirements.txt
 ```
-
-> [!IMPORTANT]
-> Use `transformers < 5`. Version 5 mis-tokenizes the trajectory SentencePiece model (pieces containing a comma
-> become `<unk>`), which silently breaks both training and evaluation.
 
 **Distributed training.** Training and evaluation run through 🤗 `accelerate`:
 
@@ -109,9 +99,6 @@ Then build the prompt/answer files the model trains on:
 ```bash
 bash scripts/prepare_dataset.sh configs/default.json eth hotel univ zara1 zara2
 ```
-
-This writes `datasets/preprocessed/*.json`. The train split carries all six question types (forecast,
-destination, direction, group, collision, mimicry) with augmentation; val and test carry forecast only.
 
 **Expert models (training only).** Clone the five expert repositories into `./workspace` and download their
 ETH/UCY checkpoints. The exact checkpoint paths MoRE loads and the config keys to override them are listed in
@@ -141,8 +128,7 @@ bash scripts/train.sh eth                 # dataset: eth | hotel | univ | zara1 
 bash scripts/train.sh eth my-experiment   # optional run tag
 ```
 
-All hyperparameters (experts, rewards, PPO, mining, LoRA) are in [configs/default.json](configs/default.json).
-The defaults follow the paper:
+Hyperparameters are in [configs/default.json](configs/default.json).
 
 | Component | Setting |
 |:--|:--|
@@ -156,11 +142,9 @@ The defaults follow the paper:
 
 ## 🚀 Inference
 
-MoRE draws N = 1000 samples per pedestrian and reports best-of-20 after K-means clustering. At inference, the
-N samples are **split evenly over several versions of the input prompt**: geometric transforms of the pixel
-coordinates (point flip, x/y swap) and the prompt with and without the scene caption. Every decoded trajectory
-is mapped back to the original frame with the inverse transform, and the pooled samples go through the usual
-post-processing (abnormal-motion filter, wall avoidance, K-means). The model, N and K stay the same.
+At inference, the sampled trajectories are split evenly over geometric transforms of the input prompt
+(point flip, x/y swap) and the prompt with and without the scene caption, mapped back to the original frame, and
+evaluated with best-of-20.
 
 | Dataset | Prompt variants | Samples per variant |
 |:--|:--|:-:|
@@ -168,8 +152,6 @@ post-processing (abnormal-motion filter, wall avoidance, K-means). The model, N 
 | ZARA2 | {original, flip, swap, flip + swap} | 250 |
 
 Implementation: [`more/inference/tta.py`](more/inference/tta.py); details in [docs/INFERENCE.md](docs/INFERENCE.md).
-Generation also uses a copy-free T5 attention for cached decoding (about 2× faster, identical outputs;
-`--no_fast_attention` disables it).
 
 ```bash
 # pretrained weights for a dataset (from ./weights)
