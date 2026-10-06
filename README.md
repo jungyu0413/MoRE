@@ -154,7 +154,22 @@ The defaults follow the paper:
 
 <br>
 
-## 📈 Evaluation
+## 🚀 Inference
+
+MoRE draws N = 1000 samples per pedestrian and reports best-of-20 after K-means clustering. At inference, the
+N samples are **split evenly over several versions of the input prompt**: geometric transforms of the pixel
+coordinates (point flip, x/y swap) and the prompt with and without the scene caption. Every decoded trajectory
+is mapped back to the original frame with the inverse transform, and the pooled samples go through the usual
+post-processing (abnormal-motion filter, wall avoidance, K-means). The model, N and K stay the same.
+
+| Dataset | Prompt variants | Samples per variant |
+|:--|:--|:-:|
+| ETH, HOTEL, UNIV, ZARA1 | {original, flip, swap, flip + swap} × {with, without scene caption} | 125 |
+| ZARA2 | {original, flip, swap, flip + swap} | 250 |
+
+Implementation: [`more/inference/tta.py`](more/inference/tta.py); details in [docs/INFERENCE.md](docs/INFERENCE.md).
+Generation also uses a copy-free T5 attention for cached decoding (about 2× faster, identical outputs;
+`--no_fast_attention` disables it).
 
 ```bash
 # pretrained weights for a dataset (from ./weights)
@@ -168,16 +183,9 @@ accelerate launch -m more.evaluate --config_file configs/default.json \
     --checkpoint <base_model> --lora <adapter_dir> --dataset_name univ
 ```
 
-Evaluation draws 1000 samples per pedestrian, clusters them to 20 with K-means, and reports best-of-20 ADE/FDE.
-It always applies **test-time augmentation** (point flip, x/y swap and, except on ZARA2, the prompt without the
-scene caption); every sample is mapped back to the original frame before post-processing. See
-[docs/INFERENCE.md](docs/INFERENCE.md) for details. `--no_fast_attention` disables the copy-free T5 attention used
-for faster sampling (outputs are identical).
-
 **Pretrained weights.** Pretrained MoRE weights will be released on the
 [release page](https://github.com/jungyu0413/MoRE/releases). Place them under `./weights`
-(layout in [weights/README.md](weights/README.md)); without `--checkpoint`, `more.evaluate` loads the weights for the
-given dataset from there.
+(see [weights/README.md](weights/README.md)).
 
 <br>
 
@@ -190,7 +198,7 @@ given dataset from there.
 MoRE/
 ├── more/
 │   ├── train.py               # supervised + PPO refinement loop
-│   ├── evaluate.py            # best-of-K ADE/FDE with test-time augmentation
+│   ├── evaluate.py            # inference with test-time augmentation, best-of-K ADE/FDE
 │   ├── prepare_dataset.py     # raw ETH/UCY → prompt/answer files
 │   ├── prepare_experts.py     # cache expert predictions
 │   ├── prepare_mining.py      # cache predictive entropies

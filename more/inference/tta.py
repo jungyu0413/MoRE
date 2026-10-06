@@ -16,22 +16,22 @@ import numpy as np
 
 MODE_BY_DATASET = {'eth': 'geo4ctxnc', 'hotel': 'geo4ctxnc', 'univ': 'geo4ctxnc', 'zara1': 'geo4ctxnc', 'zara2': 'geo4'}
 
-# Best weights found so far (full ETH/UCY test sets, 1000 samples, best-of-20, with the TTA above).
-# Used by more.evaluate when no --checkpoint is given. Paths are relative to weights_dir (see weights/README.md).
-#   dataset: (base checkpoint, LoRA adapter or None)          result (ADE/FDE)
+# Pretrained weights loaded by more.evaluate when no --checkpoint is given.
+# Paths are relative to weights_dir (see weights/README.md).
+#   dataset: (base checkpoint, LoRA adapter or None)
 BEST_WEIGHTS = {
-    'eth':   ('lmtraj_eth',   None),                           # 0.346/0.398
-    'hotel': ('lmtraj_eth',   None),                           # 0.101/0.122 (eth-split model, as the original MoRE hotel adapter)
-    'univ':  ('lmtraj_univ',  'univ_more_adapter_lr1e5_s150'), # 0.207/0.320
-    'zara1': ('lmtraj_zara1', None),                           # 0.189/0.299
-    'zara2': ('lmtraj_zara2', None),                           # 0.166/0.255
+    'eth':   ('lmtraj_eth',   None),
+    'hotel': ('lmtraj_eth',   None),
+    'univ':  ('lmtraj_univ',  'univ_more_adapter_lr1e5_s150'),
+    'zara1': ('lmtraj_zara1', None),
+    'zara2': ('lmtraj_zara2', None),
 }
 # <repo>/weights by default; override with "weights_dir" in the config
 DEFAULT_WEIGHTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'weights')
 
 
 def best_weights(dataset_name, weights_dir=None):
-    """(base checkpoint dir, adapter dir or None) for the best known model of a dataset."""
+    """(base checkpoint dir, adapter dir or None) for a dataset."""
     root = weights_dir or DEFAULT_WEIGHTS_DIR
     base, adapter = BEST_WEIGHTS[dataset_name]
     return os.path.join(root, base), (os.path.join(root, adapter) if adapter else None)
