@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://jungyu0413.github.io/MoRE/"><strong><code>Project Page</code></strong></a>
-  <a href="#"><strong><code>arXiv (coming soon)</code></strong></a>
+  <a href="https://arxiv.org/abs/2610.07954"><strong><code>arXiv</code></strong></a>
   <a href="https://github.com/jungyu0413/MoRE"><strong><code>Source Code</code></strong></a>
   <a href="#-citation"><strong><code>Citation</code></strong></a>
 </p>
@@ -209,7 +209,7 @@ If you find this code useful, please cite our paper:
 @article{lee2026more,
   title   = {Revisiting Numerical Forecasting Models for Language-Based Trajectory Prediction},
   author  = {Lee, JunGyu and Bae, Inhwan and Jeon, Hae-Gon},
-  journal = {arXiv preprint},
+  journal = {arXiv preprint arXiv:2610.07954},
   year    = {2026}
 }
 ```
